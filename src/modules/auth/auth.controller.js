@@ -36,7 +36,19 @@ async function login(req, res, next) {
   }
 }
 
+async function logout(_req, res, next) {
+  try {
+    return res.status(200).json({
+      ok: true,
+      message: 'Sesion cerrada correctamente.',
+    });
+  } catch (error) {
+    return next(error);
+  }
+}
+
 module.exports = {
   register,
   login,
+  logout,
 };

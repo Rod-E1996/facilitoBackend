@@ -1,5 +1,6 @@
 const mongoose = require('mongoose');
 const User = require('./user.model');
+const UserRole = require('./user-role.model');
 const { hashPassword, verifyPassword } = require('../../shared/security/password');
 
 function sanitizeUser(userDoc) {
@@ -189,8 +190,19 @@ async function updateUserPasswordById(userId, payload) {
   };
 }
 
+async function getUserRoleCatalog() {
+  const roles = await UserRole.find({}).sort({ user_role_name: 1 });
+
+  return {
+    ok: true,
+    status: 200,
+    data: roles,
+  };
+}
+
 module.exports = {
   getUserById,
   updateUserById,
   updateUserPasswordById,
+  getUserRoleCatalog,
 };

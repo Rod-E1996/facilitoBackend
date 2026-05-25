@@ -1,8 +1,26 @@
 const {
   getUserById,
+  getUserRoleCatalog,
   updateUserById,
   updateUserPasswordById,
 } = require('./user.service');
+
+async function getRoleCatalog(_req, res, next) {
+  try {
+    const result = await getUserRoleCatalog();
+
+    if (!result.ok) {
+      return res.status(result.status).json({ ok: false, message: result.error });
+    }
+
+    return res.status(result.status).json({
+      ok: true,
+      roles: result.data,
+    });
+  } catch (error) {
+    return next(error);
+  }
+}
 
 async function getById(req, res, next) {
   try {
@@ -58,6 +76,7 @@ async function patchPasswordById(req, res, next) {
 }
 
 module.exports = {
+  getRoleCatalog,
   getById,
   patchById,
   patchPasswordById,

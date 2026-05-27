@@ -1,4 +1,21 @@
-const { createReview } = require('./review.service');
+const { createReview, listReviewsByBusinessId } = require('./review.service');
+
+async function list(req, res, next) {
+  try {
+    const result = await listReviewsByBusinessId(req.query.business_id);
+
+    if (!result.ok) {
+      return res.status(result.status).json({ ok: false, message: result.error });
+    }
+
+    return res.status(result.status).json({
+      ok: true,
+      reviews: result.data,
+    });
+  } catch (error) {
+    return next(error);
+  }
+}
 
 async function create(req, res, next) {
   try {
@@ -20,4 +37,5 @@ async function create(req, res, next) {
 
 module.exports = {
   create,
+  list,
 };

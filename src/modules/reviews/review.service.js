@@ -1,6 +1,36 @@
 const mongoose = require('mongoose');
 const Review = require('./review.model');
 
+async function listReviewsByBusinessId(businessId) {
+  if (!businessId) {
+    return {
+      ok: false,
+      status: 400,
+      error: 'Debes enviar el query param business_id.',
+    };
+  }
+
+  if (!mongoose.Types.ObjectId.isValid(businessId)) {
+    return {
+      ok: false,
+      status: 400,
+      error: 'El business_id no es un ObjectId válido.',
+    };
+  }
+
+  const reviews = await Review.find({ business_id: businessId })
+    .populate({ path: 'reviewer_id', select: '-password' })
+    .populate({ path: 'service_request_id' })
+    .populate({ path: 'business_id' })
+    .sort({ review_date: -1 });
+
+  return {
+    ok: true,
+    status: 200,
+    data: reviews,
+  };
+}
+
 async function createReview(payload) {
   const requiredFields = [
     'service_request_id',
@@ -70,4 +100,5 @@ async function createReview(payload) {
 
 module.exports = {
   createReview,
+  listReviewsByBusinessId,
 };

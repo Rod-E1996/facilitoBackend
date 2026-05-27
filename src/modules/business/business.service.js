@@ -2,8 +2,24 @@ const mongoose = require('mongoose');
 const Business = require('./business.model');
 const User = require('../users/user.model');
 
-async function listBusinesses() {
-  const businesses = await Business.find({})
+async function listBusinesses(userId) {
+  if (!userId) {
+    return {
+      ok: false,
+      status: 400,
+      error: 'Debes enviar el query param user_id.',
+    };
+  }
+
+  if (!mongoose.Types.ObjectId.isValid(userId)) {
+    return {
+      ok: false,
+      status: 400,
+      error: 'El user_id no es un ObjectId válido.',
+    };
+  }
+
+  const businesses = await Business.find({ user_id: userId })
     .populate({
       path: 'user_id',
       select: '-password',

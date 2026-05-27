@@ -1,8 +1,8 @@
 const { createBusiness, listBusinesses } = require('./business.service');
 
-async function list(_req, res, next) {
+async function list(req, res, next) {
   try {
-    const result = await listBusinesses();
+    const result = await listBusinesses(req.query.user_id);
 
     if (!result.ok) {
       return res.status(result.status).json({ ok: false, message: result.error });

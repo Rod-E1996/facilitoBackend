@@ -1,8 +1,8 @@
 const { listChats, listChatMessages } = require('./chat.service');
 
-async function list(_req, res, next) {
+async function list(req, res, next) {
   try {
-    const result = await listChats();
+    const result = await listChats(req.query.user_id);
 
     if (!result.ok) {
       return res.status(result.status).json({ ok: false, message: result.error });
@@ -17,9 +17,9 @@ async function list(_req, res, next) {
   }
 }
 
-async function listMessages(_req, res, next) {
+async function listMessages(req, res, next) {
   try {
-    const result = await listChatMessages();
+    const result = await listChatMessages(req.query.user_id);
 
     if (!result.ok) {
       return res.status(result.status).json({ ok: false, message: result.error });

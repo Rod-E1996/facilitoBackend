@@ -3,6 +3,7 @@ const Chat = require('./chat.model');
 const ChatMessages = require('./chat-message.model');
 const ServiceRequest = require('../requests/service-request.model');
 const Business = require('../business/business.model');
+const User = require('../users/user.model');
 
 async function getUserChatScope(userId) {
   if (!userId) {
@@ -108,7 +109,88 @@ async function listChatMessages(userId) {
   };
 }
 
+async function createChatMessage(payload) {
+  const requiredFields = ['chat_id', 'sender_id', 'message_content'];
+  const missingFields = requiredFields.filter(
+    (field) => payload[field] === undefined || payload[field] === null || payload[field] === ''
+  );
+
+  if (missingFields.length) {
+    return {
+      ok: false,
+      status: 400,
+      error: `Campos requeridos faltantes: ${missingFields.join(', ')}`,
+    };
+  }
+
+  if (!mongoose.Types.ObjectId.isValid(payload.chat_id)) {
+    return {
+      ok: false,
+      status: 400,
+      error: 'El chat_id no es un ObjectId válido.',
+    };
+  }
+
+  if (!mongoose.Types.ObjectId.isValid(payload.sender_id)) {
+    return {
+      ok: false,
+      status: 400,
+      error: 'El sender_id no es un ObjectId válido.',
+    };
+  }
+
+  const [chat, sender] = await Promise.all([
+    Chat.findById(payload.chat_id).lean(),
+    User.findById(payload.sender_id).lean(),
+  ]);
+
+  if (!chat) {
+    return {
+      ok: false,
+      status: 404,
+      error: 'Chat no encontrado.',
+    };
+  }
+
+  if (!sender) {
+    return {
+      ok: false,
+      status: 404,
+      error: 'Usuario sender no encontrado.',
+    };
+  }
+
+  const timeSent = payload.time_sent ? new Date(payload.time_sent) : new Date();
+  if (Number.isNaN(timeSent.getTime())) {
+    return {
+      ok: false,
+      status: 400,
+      error: 'El time_sent no tiene un formato de fecha válido.',
+    };
+  }
+
+  const message = await ChatMessages.create({
+    chat_id: payload.chat_id,
+    sender_id: payload.sender_id,
+    message_content: String(payload.message_content).trim(),
+    is_sent: payload.is_sent === undefined ? true : Boolean(payload.is_sent),
+    is_read: payload.is_read === undefined ? false : Boolean(payload.is_read),
+    time_sent: timeSent,
+  });
+
+  const populatedMessage = await ChatMessages.findById(message._id)
+    .populate({ path: 'sender_id', select: '-password' })
+    .populate('chat_id');
+
+  return {
+    ok: true,
+    status: 201,
+    data: populatedMessage,
+  };
+}
+
 module.exports = {
   listChats,
   listChatMessages,
+  createChatMessage,
 };

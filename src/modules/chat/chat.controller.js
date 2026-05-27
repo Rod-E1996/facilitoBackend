@@ -19,7 +19,7 @@ async function list(req, res, next) {
 
 async function listMessages(req, res, next) {
   try {
-    const result = await listChatMessages(req.query.user_id);
+    const result = await listChatMessages(req.query.chat_id);
 
     if (!result.ok) {
       return res.status(result.status).json({ ok: false, message: result.error });

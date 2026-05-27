@@ -67,22 +67,24 @@ async function listChats(userId) {
   };
 }
 
-async function listChatMessages(userId) {
-  const scope = await getUserChatScope(userId);
-  if (!scope.ok) return scope;
+async function listChatMessages(chatId) {
+  if (!chatId) {
+    return {
+      ok: false,
+      status: 400,
+      error: 'Debes enviar el query param chat_id.',
+    };
+  }
 
-  const chats = await Chat.find({
-    $or: [
-      { service_request_id: { $in: scope.serviceRequestIds } },
-      { business_id: { $in: scope.businessIds } },
-    ],
-  })
-    .select('_id')
-    .lean();
+  if (!mongoose.Types.ObjectId.isValid(chatId)) {
+    return {
+      ok: false,
+      status: 400,
+      error: 'El chat_id no es un ObjectId válido.',
+    };
+  }
 
-  const chatIds = chats.map((chat) => chat._id);
-
-  const messages = await ChatMessages.find({ chat_id: { $in: chatIds } })
+  const messages = await ChatMessages.find({ chat_id: chatId })
     .populate({
       path: 'chat_id',
       populate: [

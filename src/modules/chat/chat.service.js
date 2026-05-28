@@ -67,7 +67,74 @@ async function listChats(userId) {
   };
 }
 
-async function listChatMessages(chatId) {
+async function validateUserChatAccess(userId, chatId, userFieldLabel = 'user_id') {
+  if (!userId) {
+    return {
+      ok: false,
+      status: 400,
+      error: `Debes enviar ${userFieldLabel}.`,
+    };
+  }
+
+  if (!mongoose.Types.ObjectId.isValid(userId)) {
+    return {
+      ok: false,
+      status: 400,
+      error: `El ${userFieldLabel} no es un ObjectId válido.`,
+    };
+  }
+
+  if (!chatId) {
+    return {
+      ok: false,
+      status: 400,
+      error: 'Debes enviar chat_id.',
+    };
+  }
+
+  if (!mongoose.Types.ObjectId.isValid(chatId)) {
+    return {
+      ok: false,
+      status: 400,
+      error: 'El chat_id no es un ObjectId válido.',
+    };
+  }
+
+  const chat = await Chat.findById(chatId).select('service_request_id business_id').lean();
+
+  if (!chat) {
+    return {
+      ok: false,
+      status: 404,
+      error: 'Chat no encontrado.',
+    };
+  }
+
+  const [serviceRequest, business] = await Promise.all([
+    ServiceRequest.findById(chat.service_request_id).select('customer_id').lean(),
+    Business.findById(chat.business_id).select('user_id').lean(),
+  ]);
+
+  const isCustomerInChat =
+    serviceRequest?.customer_id && String(serviceRequest.customer_id) === String(userId);
+  const isBusinessOwnerInChat = business?.user_id && String(business.user_id) === String(userId);
+
+  if (!isCustomerInChat && !isBusinessOwnerInChat) {
+    return {
+      ok: false,
+      status: 403,
+      error: 'No tienes permisos para acceder a este chat.',
+    };
+  }
+
+  return {
+    ok: true,
+    status: 200,
+    chat,
+  };
+}
+
+async function listChatMessages(chatId, userId) {
   if (!chatId) {
     return {
       ok: false,
@@ -83,6 +150,9 @@ async function listChatMessages(chatId) {
       error: 'El chat_id no es un ObjectId válido.',
     };
   }
+
+  const access = await validateUserChatAccess(userId, chatId, 'user_id');
+  if (!access.ok) return access;
 
   const messages = await ChatMessages.find({ chat_id: chatId })
     .populate({
@@ -111,8 +181,8 @@ async function listChatMessages(chatId) {
   };
 }
 
-async function createChatMessage(payload) {
-  const requiredFields = ['chat_id', 'sender_id', 'message_content'];
+async function createChatMessage(payload, authenticatedUserId) {
+  const requiredFields = ['chat_id', 'message_content'];
   const missingFields = requiredFields.filter(
     (field) => payload[field] === undefined || payload[field] === null || payload[field] === ''
   );
@@ -133,26 +203,18 @@ async function createChatMessage(payload) {
     };
   }
 
-  if (!mongoose.Types.ObjectId.isValid(payload.sender_id)) {
+  if (!mongoose.Types.ObjectId.isValid(authenticatedUserId)) {
     return {
       ok: false,
       status: 400,
-      error: 'El sender_id no es un ObjectId válido.',
+      error: 'El usuario autenticado no es un ObjectId válido.',
     };
   }
 
-  const [chat, sender] = await Promise.all([
-    Chat.findById(payload.chat_id).lean(),
-    User.findById(payload.sender_id).lean(),
-  ]);
+  const access = await validateUserChatAccess(authenticatedUserId, payload.chat_id, 'user_id');
+  if (!access.ok) return access;
 
-  if (!chat) {
-    return {
-      ok: false,
-      status: 404,
-      error: 'Chat no encontrado.',
-    };
-  }
+  const sender = await User.findById(authenticatedUserId).lean();
 
   if (!sender) {
     return {
@@ -173,7 +235,7 @@ async function createChatMessage(payload) {
 
   const message = await ChatMessages.create({
     chat_id: payload.chat_id,
-    sender_id: payload.sender_id,
+    sender_id: authenticatedUserId,
     message_content: String(payload.message_content).trim(),
     is_sent: payload.is_sent === undefined ? true : Boolean(payload.is_sent),
     is_read: payload.is_read === undefined ? false : Boolean(payload.is_read),
@@ -195,4 +257,5 @@ module.exports = {
   listChats,
   listChatMessages,
   createChatMessage,
+  validateUserChatAccess,
 };

@@ -1,10 +1,41 @@
 const User = require('../users/user.model');
 const { hashPassword, verifyPassword } = require('../../shared/security/password');
+const {
+  signAccessToken,
+  signRefreshToken,
+  verifyRefreshToken,
+  decodeToken,
+} = require('../../shared/security/jwt');
+const RefreshToken = require('./refresh-token.model');
+const crypto = require('node:crypto');
 
 function sanitizeUser(userDoc) {
   const user = userDoc.toObject();
   delete user.password;
   return user;
+}
+
+function hashToken(token) {
+  return crypto.createHash('sha256').update(token).digest('hex');
+}
+
+async function createSessionTokens(user) {
+  const tokenId = crypto.randomUUID();
+  const accessToken = signAccessToken(user);
+  const refreshToken = signRefreshToken(user, tokenId);
+  const decodedRefreshToken = decodeToken(refreshToken);
+
+  await RefreshToken.create({
+    user_id: user._id,
+    token_hash: hashToken(refreshToken),
+    expires_at: new Date(decodedRefreshToken.exp * 1000),
+  });
+
+  return {
+    accessToken,
+    refreshToken,
+    tokenType: 'Bearer',
+  };
 }
 
 async function registerUser(payload) {
@@ -72,14 +103,104 @@ async function loginUser(payload) {
     };
   }
 
+  const sanitizedUser = sanitizeUser(user);
+  const sessionTokens = await createSessionTokens(user);
+
   return {
     ok: true,
     status: 200,
-    data: sanitizeUser(user),
+    data: {
+      user: sanitizedUser,
+      ...sessionTokens,
+    },
+  };
+}
+
+async function refreshSession(payload) {
+  if (!payload.refreshToken) {
+    return {
+      ok: false,
+      status: 400,
+      error: 'Debes enviar refreshToken.',
+    };
+  }
+
+  let decoded;
+  try {
+    decoded = verifyRefreshToken(payload.refreshToken);
+  } catch (_error) {
+    return {
+      ok: false,
+      status: 401,
+      error: 'Refresh token inválido o expirado.',
+    };
+  }
+
+  const tokenHash = hashToken(payload.refreshToken);
+  const storedToken = await RefreshToken.findOne({ token_hash: tokenHash });
+
+  if (!storedToken || storedToken.revoked_at || storedToken.expires_at <= new Date()) {
+    return {
+      ok: false,
+      status: 401,
+      error: 'Refresh token inválido o revocado.',
+    };
+  }
+
+  if (String(storedToken.user_id) !== String(decoded.sub)) {
+    return {
+      ok: false,
+      status: 401,
+      error: 'Refresh token inválido para este usuario.',
+    };
+  }
+
+  const user = await User.findById(decoded.sub);
+  if (!user) {
+    return {
+      ok: false,
+      status: 401,
+      error: 'Usuario no válido para renovar sesión.',
+    };
+  }
+
+  storedToken.revoked_at = new Date();
+  await storedToken.save();
+
+  const sessionTokens = await createSessionTokens(user);
+
+  return {
+    ok: true,
+    status: 200,
+    data: sessionTokens,
+  };
+}
+
+async function logoutSession(payload) {
+  if (!payload.refreshToken) {
+    return {
+      ok: true,
+      status: 200,
+      data: null,
+    };
+  }
+
+  const tokenHash = hashToken(payload.refreshToken);
+  await RefreshToken.updateOne(
+    { token_hash: tokenHash, revoked_at: null },
+    { $set: { revoked_at: new Date() } }
+  );
+
+  return {
+    ok: true,
+    status: 200,
+    data: null,
   };
 }
 
 module.exports = {
   registerUser,
   loginUser,
+  refreshSession,
+  logoutSession,
 };

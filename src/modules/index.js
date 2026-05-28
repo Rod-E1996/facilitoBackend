@@ -10,6 +10,7 @@ const Chat = require('./chat/chat.model');
 const ChatMessages = require('./chat/chat-message.model');
 const Review = require('./reviews/review.model');
 const Notification = require('./notifications/notification.model');
+const RefreshToken = require('./auth/refresh-token.model');
 
 module.exports = {
   UserRole,
@@ -24,4 +25,5 @@ module.exports = {
   ChatMessages,
   Review,
   Notification,
+  RefreshToken,
 };

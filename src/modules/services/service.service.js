@@ -2,6 +2,24 @@ const mongoose = require('mongoose');
 const Service = require('./service.model');
 const Business = require('../business/business.model');
 
+async function listServices() {
+  const services = await Service.find()
+    .populate({
+      path: 'business_id',
+      populate: {
+        path: 'user_id',
+        select: '-password',
+      },
+    })
+    .sort({ _id: -1 });
+
+  return {
+    ok: true,
+    status: 200,
+    data: services,
+  };
+}
+
 async function createService(payload) {
   const requiredFields = ['service_name', 'service_description', 'business_id'];
   const missingFields = requiredFields.filter(
@@ -48,5 +66,6 @@ async function createService(payload) {
 }
 
 module.exports = {
+  listServices,
   createService,
 };

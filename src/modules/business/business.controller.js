@@ -1,4 +1,4 @@
-const { createBusiness, listBusinesses } = require('./business.service');
+const { createBusiness, listBusinesses, updateBusiness } = require('./business.service');
 
 async function list(req, res, next) {
   try {
@@ -35,7 +35,26 @@ async function create(req, res, next) {
   }
 }
 
+async function update(req, res, next) {
+  try {
+    const result = await updateBusiness(req.params.business_id, req.body);
+
+    if (!result.ok) {
+      return res.status(result.status).json({ ok: false, message: result.error });
+    }
+
+    return res.status(result.status).json({
+      ok: true,
+      message: 'Business actualizado correctamente.',
+      business: result.data,
+    });
+  } catch (error) {
+    return next(error);
+  }
+}
+
 module.exports = {
   create,
   list,
+  update,
 };

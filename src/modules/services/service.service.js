@@ -2,8 +2,23 @@ const mongoose = require('mongoose');
 const Service = require('./service.model');
 const Business = require('../business/business.model');
 
-async function listServices() {
-  const services = await Service.find()
+async function listServices(userId) {
+  const query = {};
+
+  if (userId) {
+    if (!mongoose.Types.ObjectId.isValid(userId)) {
+      return {
+        ok: false,
+        status: 400,
+        error: 'El userid no es un ObjectId válido.',
+      };
+    }
+
+    const businesses = await Business.find({ user_id: userId }).select('_id');
+    query.business_id = { $in: businesses.map((business) => business._id) };
+  }
+
+  const services = await Service.find(query)
     .populate({
       path: 'business_id',
       populate: {

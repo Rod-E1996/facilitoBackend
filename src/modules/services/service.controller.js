@@ -2,7 +2,7 @@ const { createService, listServices } = require('./service.service');
 
 async function list(req, res, next) {
   try {
-    const result = await listServices();
+    const result = await listServices(req.query.userid || req.query.user_id);
 
     if (!result.ok) {
       return res.status(result.status).json({ ok: false, message: result.error });

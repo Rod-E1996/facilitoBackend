@@ -3,6 +3,7 @@ const Chat = require('./chat.model');
 const ChatMessages = require('./chat-message.model');
 const ServiceRequest = require('../requests/service-request.model');
 const Business = require('../business/business.model');
+const Service = require('../services/service.model');
 const User = require('../users/user.model');
 
 async function getUserChatScope(userId) {
@@ -64,6 +65,175 @@ async function listChats(userId) {
     ok: true,
     status: 200,
     data: chats,
+  };
+}
+
+async function createChat(payload, authenticatedUserId) {
+  const requiredFields = ['service_request_id', 'business_id'];
+  const missingFields = requiredFields.filter(
+    (field) => payload[field] === undefined || payload[field] === null || payload[field] === ''
+  );
+
+  if (missingFields.length) {
+    return {
+      ok: false,
+      status: 400,
+      error: `Campos requeridos faltantes: ${missingFields.join(', ')}`,
+    };
+  }
+
+  if (!mongoose.Types.ObjectId.isValid(authenticatedUserId)) {
+    return {
+      ok: false,
+      status: 400,
+      error: 'El usuario autenticado no es un ObjectId válido.',
+    };
+  }
+
+  if (!mongoose.Types.ObjectId.isValid(payload.service_request_id)) {
+    return {
+      ok: false,
+      status: 400,
+      error: 'El service_request_id no es un ObjectId válido.',
+    };
+  }
+
+  if (!mongoose.Types.ObjectId.isValid(payload.business_id)) {
+    return {
+      ok: false,
+      status: 400,
+      error: 'El business_id no es un ObjectId válido.',
+    };
+  }
+
+  const [serviceRequest, business] = await Promise.all([
+    ServiceRequest.findById(payload.service_request_id).lean(),
+    Business.findById(payload.business_id).lean(),
+  ]);
+
+  if (!serviceRequest) {
+    return {
+      ok: false,
+      status: 404,
+      error: 'Service request no encontrado.',
+    };
+  }
+
+  if (!business) {
+    return {
+      ok: false,
+      status: 404,
+      error: 'Business no encontrado.',
+    };
+  }
+
+  const service = await Service.findById(serviceRequest.service_id).select('business_id').lean();
+
+  if (!service) {
+    return {
+      ok: false,
+      status: 404,
+      error: 'Service asociado al service request no encontrado.',
+    };
+  }
+
+  if (String(service.business_id) !== String(payload.business_id)) {
+    return {
+      ok: false,
+      status: 400,
+      error: 'El service_request_id no pertenece al business_id enviado.',
+    };
+  }
+
+  const isCustomer = String(serviceRequest.customer_id) === String(authenticatedUserId);
+  const isBusinessOwner = String(business.user_id) === String(authenticatedUserId);
+
+  if (!isCustomer && !isBusinessOwner) {
+    return {
+      ok: false,
+      status: 403,
+      error: 'No tienes permisos para crear este chat.',
+    };
+  }
+
+  const existingChat = await Chat.findOne({
+    service_request_id: payload.service_request_id,
+    business_id: payload.business_id,
+  })
+    .populate({
+      path: 'service_request_id',
+      populate: [
+        { path: 'customer_id', select: '-password' },
+        { path: 'service_id', populate: { path: 'business_id' } },
+      ],
+    })
+    .populate({
+      path: 'business_id',
+      populate: { path: 'user_id', select: '-password' },
+    });
+
+  if (existingChat) {
+    return {
+      ok: true,
+      status: 200,
+      message: 'El chat ya existe para esa solicitud y negocio.',
+      data: existingChat,
+    };
+  }
+
+  let createdChat;
+  try {
+    createdChat = await Chat.create({
+      service_request_id: payload.service_request_id,
+      business_id: payload.business_id,
+    });
+  } catch (error) {
+    if (error?.code === 11000) {
+      const duplicatedChat = await Chat.findOne({
+        service_request_id: payload.service_request_id,
+        business_id: payload.business_id,
+      })
+        .populate({
+          path: 'service_request_id',
+          populate: [
+            { path: 'customer_id', select: '-password' },
+            { path: 'service_id', populate: { path: 'business_id' } },
+          ],
+        })
+        .populate({
+          path: 'business_id',
+          populate: { path: 'user_id', select: '-password' },
+        });
+
+      return {
+        ok: true,
+        status: 200,
+        message: 'El chat ya existe para esa solicitud y negocio.',
+        data: duplicatedChat,
+      };
+    }
+
+    throw error;
+  }
+
+  const populatedChat = await Chat.findById(createdChat._id)
+    .populate({
+      path: 'service_request_id',
+      populate: [
+        { path: 'customer_id', select: '-password' },
+        { path: 'service_id', populate: { path: 'business_id' } },
+      ],
+    })
+    .populate({
+      path: 'business_id',
+      populate: { path: 'user_id', select: '-password' },
+    });
+
+  return {
+    ok: true,
+    status: 201,
+    message: 'Chat creado correctamente.',
+    data: populatedChat,
   };
 }
 
@@ -254,6 +424,7 @@ async function createChatMessage(payload, authenticatedUserId) {
 }
 
 module.exports = {
+  createChat,
   listChats,
   listChatMessages,
   createChatMessage,

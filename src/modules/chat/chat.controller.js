@@ -1,5 +1,23 @@
-const { createChatMessage, listChats, listChatMessages } = require('./chat.service');
+const { createChat, createChatMessage, listChats, listChatMessages } = require('./chat.service');
 const { emitToChatRoom } = require('../../socket');
+
+async function create(req, res, next) {
+  try {
+    const result = await createChat(req.body, req.user.id);
+
+    if (!result.ok) {
+      return res.status(result.status).json({ ok: false, message: result.error });
+    }
+
+    return res.status(result.status).json({
+      ok: true,
+      message: result.message,
+      chat: result.data,
+    });
+  } catch (error) {
+    return next(error);
+  }
+}
 
 async function list(req, res, next) {
   try {
@@ -59,6 +77,7 @@ async function createMessage(req, res, next) {
 }
 
 module.exports = {
+  create,
   list,
   listMessages,
   createMessage,

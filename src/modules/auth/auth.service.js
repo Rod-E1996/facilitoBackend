@@ -73,6 +73,10 @@ async function registerUser(payload) {
   const user = await User.create({
     ...payload,
     email: payload.email.toLowerCase().trim(),
+    address:
+      Object.prototype.hasOwnProperty.call(payload, 'address') && payload.address !== null
+        ? String(payload.address).trim()
+        : payload.address,
     dui: payload.dui.trim(),
     password: hashPassword(payload.password),
   });

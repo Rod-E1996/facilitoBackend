@@ -44,7 +44,7 @@ async function updateUserById(userId, payload) {
     };
   }
 
-  const allowedFields = ['name', 'last_name', 'telephone', 'dui', 'email'];
+  const allowedFields = ['name', 'last_name', 'telephone', 'address', 'dui', 'email'];
   const updates = {};
 
   allowedFields.forEach((field) => {
@@ -67,6 +67,10 @@ async function updateUserById(userId, payload) {
 
   if (updates.dui) {
     updates.dui = updates.dui.trim();
+  }
+
+  if (Object.prototype.hasOwnProperty.call(updates, 'address') && updates.address !== null) {
+    updates.address = String(updates.address).trim();
   }
 
   const user = await User.findById(userId);

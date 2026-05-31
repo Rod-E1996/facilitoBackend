@@ -13,8 +13,16 @@ async function setupRedisAdapter(socketServer) {
     return;
   }
 
-  const pubClient = createClient({ url: REDIS_URL });
-  const subClient = pubClient.duplicate();
+  let pubClient;
+  let subClient;
+
+  try {
+    pubClient = createClient({ url: REDIS_URL });
+    subClient = pubClient.duplicate();
+  } catch (error) {
+    console.warn(`REDIS_URL inválida, se omite Redis adapter: ${error.message}`);
+    return;
+  }
 
   pubClient.on('error', (error) => {
     console.error('Redis pub client error:', error.message);
@@ -24,9 +32,13 @@ async function setupRedisAdapter(socketServer) {
     console.error('Redis sub client error:', error.message);
   });
 
-  await Promise.all([pubClient.connect(), subClient.connect()]);
-  socketServer.adapter(createAdapter(pubClient, subClient));
-  console.log('Socket.IO Redis adapter habilitado.');
+  try {
+    await Promise.all([pubClient.connect(), subClient.connect()]);
+    socketServer.adapter(createAdapter(pubClient, subClient));
+    console.log('Socket.IO Redis adapter habilitado.');
+  } catch (error) {
+    console.warn(`No se pudo conectar a Redis, se continúa sin adapter: ${error.message}`);
+  }
 }
 
 async function initSocketServer(httpServer) {

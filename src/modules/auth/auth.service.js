@@ -77,6 +77,11 @@ async function registerUser(payload) {
       Object.prototype.hasOwnProperty.call(payload, 'address') && payload.address !== null
         ? String(payload.address).trim()
         : payload.address,
+    profile_img_url:
+      Object.prototype.hasOwnProperty.call(payload, 'profile_img_url') &&
+      payload.profile_img_url !== null
+        ? String(payload.profile_img_url).trim()
+        : payload.profile_img_url,
     dui: payload.dui.trim(),
     password: hashPassword(payload.password),
   });

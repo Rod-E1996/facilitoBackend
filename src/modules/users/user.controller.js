@@ -32,7 +32,14 @@ async function getById(req, res, next) {
 
     return res.status(result.status).json({
       ok: true,
-      user: result.data,
+      user: {
+        ...result.data,
+        profile_img_url:
+          Object.prototype.hasOwnProperty.call(result.data, 'profile_img_url') &&
+          result.data.profile_img_url !== undefined
+            ? result.data.profile_img_url
+            : null,
+      },
     });
   } catch (error) {
     return next(error);

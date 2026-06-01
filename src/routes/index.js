@@ -6,6 +6,7 @@ const userRoutes = require('../modules/users/user.routes');
 const reviewRoutes = require('../modules/reviews/review.routes');
 const serviceRequestRoutes = require('../modules/requests/service-request.routes');
 const serviceCategoryRoutes = require('../modules/services/service-category.routes');
+const uploadRoutes = require('../modules/upload/upload.routes');
 
 const router = express.Router();
 
@@ -20,5 +21,6 @@ router.use('/users', userRoutes);
 router.use('/reviews', reviewRoutes);
 router.use('/requests', serviceRequestRoutes);
 router.use('/services', serviceCategoryRoutes);
+router.use('/upload', uploadRoutes);
 
 module.exports = router;

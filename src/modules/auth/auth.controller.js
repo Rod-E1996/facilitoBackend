@@ -1,5 +1,14 @@
 const { loginUser, logoutSession, refreshSession, registerUser } = require('./auth.service');
 
+function sanitizeResponseUser(user) {
+  if (!user || typeof user !== 'object') {
+    return user;
+  }
+
+  const { password, ...safeUser } = user;
+  return safeUser;
+}
+
 async function register(req, res, next) {
   try {
     const result = await registerUser(req.body);
@@ -11,7 +20,10 @@ async function register(req, res, next) {
     return res.status(result.status).json({
       ok: true,
       message: 'Usuario registrado correctamente.',
-      user: result.data,
+      user: sanitizeResponseUser(result.data.user),
+      accessToken: result.data.accessToken,
+      refreshToken: result.data.refreshToken,
+      tokenType: result.data.tokenType,
     });
   } catch (error) {
     return next(error);
@@ -29,7 +41,7 @@ async function login(req, res, next) {
     return res.status(result.status).json({
       ok: true,
       message: 'Inicio de sesión correcto.',
-      user: result.data.user,
+      user: sanitizeResponseUser(result.data.user),
       accessToken: result.data.accessToken,
       refreshToken: result.data.refreshToken,
       tokenType: result.data.tokenType,

@@ -86,10 +86,16 @@ async function registerUser(payload) {
     password: hashPassword(payload.password),
   });
 
+  const sanitizedUser = sanitizeUser(user);
+  const sessionTokens = await createSessionTokens(user);
+
   return {
     ok: true,
     status: 201,
-    data: sanitizeUser(user),
+    data: {
+      user: sanitizedUser,
+      ...sessionTokens,
+    },
   };
 }
 
